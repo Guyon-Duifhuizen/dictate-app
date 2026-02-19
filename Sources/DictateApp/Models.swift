@@ -12,11 +12,16 @@ struct StopCommand: Encodable {
     let type = "stop"
 }
 
+struct AudioCommand: Encodable {
+    let type = "audio"
+    let data: String
+}
+
 // MARK: - Events (Python → Swift)
 
 enum WorkerEvent {
     case ready
-    case interim(text: String, audioLevel: Double)
+    case interim(text: String)
     case finalResult(text: String)
     case error(message: String)
     case stopped
@@ -26,7 +31,6 @@ extension WorkerEvent: Decodable {
     private enum CodingKeys: String, CodingKey {
         case type
         case text
-        case audioLevel = "audio_level"
         case message
     }
 
@@ -39,8 +43,7 @@ extension WorkerEvent: Decodable {
             self = .ready
         case "interim":
             let text = try container.decode(String.self, forKey: .text)
-            let level = try container.decodeIfPresent(Double.self, forKey: .audioLevel) ?? 0.0
-            self = .interim(text: text, audioLevel: level)
+            self = .interim(text: text)
         case "final":
             let text = try container.decode(String.self, forKey: .text)
             self = .finalResult(text: text)

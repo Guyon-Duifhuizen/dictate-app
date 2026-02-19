@@ -1,0 +1,3 @@
+language = "en-US"
+sample_rate = 16_000
+model = "latest_long"

@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Voice-to-text dictation via Google Cloud Speech"
 requires-python = ">=3.12"
 dependencies = [
-    "pyaudio>=0.2.14",
     "google-cloud-speech>=2.36.0",
 ]
 

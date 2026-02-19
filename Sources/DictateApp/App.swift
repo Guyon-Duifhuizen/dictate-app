@@ -20,6 +20,9 @@ func appLog(_ msg: String) {
 @main
 struct DictateApp {
     static func main() {
+        // Ignore SIGPIPE so we don't crash if the Python worker dies mid-stream
+        signal(SIGPIPE, SIG_IGN)
+
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
@@ -36,6 +39,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var speechBridge: SpeechBridge!
     private let listeningState = ListeningState()
     private var accessibilityTimer: Timer?
+    private let audioEngine = AVAudioEngine()
+    private var audioConverter: AVAudioConverter?
+    private var maxDurationTimer: Timer?
+    private let maxListeningDuration: TimeInterval = 15 * 60  // 15 minutes
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         appLog("App launched (PID \(ProcessInfo.processInfo.processIdentifier))")
@@ -130,11 +137,122 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         listeningState.transcript = ""
         indicatorWindow.show()
         speechBridge.startRecognition()
+        startAudioCapture()
+
+        maxDurationTimer = Timer.scheduledTimer(withTimeInterval: maxListeningDuration, repeats: false) { [weak self] _ in
+            appLog("Max listening duration reached — stopping automatically")
+            self?.stopListening()
+        }
     }
 
     private func stopListening() {
         appLog("Stopping dictation…")
+        maxDurationTimer?.invalidate()
+        maxDurationTimer = nil
+        stopAudioCapture()
         speechBridge.stopRecognition()
+    }
+
+    // MARK: - Audio capture
+
+    private func startAudioCapture() {
+        let inputNode = audioEngine.inputNode
+        let hwFormat = inputNode.outputFormat(forBus: 0)
+        appLog("Mic hardware format: \(hwFormat)")
+
+        guard let targetFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 16000,
+            channels: 1,
+            interleaved: false
+        ) else {
+            appLog("Failed to create target audio format")
+            return
+        }
+
+        guard let converter = AVAudioConverter(from: hwFormat, to: targetFormat) else {
+            appLog("Failed to create AVAudioConverter")
+            return
+        }
+        self.audioConverter = converter
+
+        let requestedFrames: AVAudioFrameCount = 1600  // 100ms at 16kHz
+
+        inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(hwFormat.sampleRate * 0.1),
+                             format: hwFormat) { [weak self] buffer, _ in
+            self?.processAudioBuffer(buffer, converter: converter,
+                                     targetFormat: targetFormat,
+                                     requestedFrames: requestedFrames)
+        }
+
+        do {
+            try audioEngine.start()
+            appLog("Audio engine started")
+        } catch {
+            appLog("Failed to start audio engine: \(error.localizedDescription)")
+            inputNode.removeTap(onBus: 0)
+        }
+    }
+
+    private func stopAudioCapture() {
+        audioEngine.inputNode.removeTap(onBus: 0)
+        audioEngine.stop()
+        audioConverter = nil
+        appLog("Audio engine stopped")
+    }
+
+    private func processAudioBuffer(_ buffer: AVAudioPCMBuffer,
+                                    converter: AVAudioConverter,
+                                    targetFormat: AVAudioFormat,
+                                    requestedFrames: AVAudioFrameCount) {
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat,
+                                                  frameCapacity: requestedFrames) else { return }
+
+        var hasProvided = false
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if hasProvided {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            hasProvided = true
+            outStatus.pointee = .haveData
+            return buffer
+        }
+
+        var error: NSError?
+        let status = converter.convert(to: outputBuffer, error: &error, withInputFrom: inputBlock)
+
+        guard status != .error, let floatData = outputBuffer.floatChannelData else { return }
+
+        let frameCount = Int(outputBuffer.frameLength)
+        guard frameCount > 0 else { return }
+
+        let floatPtr = floatData[0]
+
+        // Compute RMS for the audio level indicator
+        var sumSquares: Float = 0
+        for i in 0..<frameCount {
+            let s = floatPtr[i]
+            sumSquares += s * s
+        }
+        let rms = sqrt(sumSquares / Float(frameCount))
+        // Normalize: map RMS to 0..1 range (typical speech RMS ~0.01-0.1)
+        let level = Double(min(1.0, rms * 10.0))
+        DispatchQueue.main.async { [weak self] in
+            self?.listeningState.audioLevel = level
+        }
+
+        // Convert Float32 → Int16 PCM
+        var int16Data = Data(count: frameCount * 2)
+        int16Data.withUnsafeMutableBytes { rawBuf in
+            let int16Ptr = rawBuf.bindMemory(to: Int16.self)
+            for i in 0..<frameCount {
+                let clamped = max(-1.0, min(1.0, floatPtr[i]))
+                int16Ptr[i] = Int16(clamped * Float(Int16.max))
+            }
+        }
+
+        speechBridge.sendAudio(int16Data)
     }
 
     // MARK: - Worker events
@@ -145,8 +263,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .ready:
                 appLog("Speech worker ready")
 
-            case .interim(let text, let audioLevel):
-                listeningState.audioLevel = audioLevel
+            case .interim(let text):
                 listeningState.transcript = text
 
             case .finalResult(let text):

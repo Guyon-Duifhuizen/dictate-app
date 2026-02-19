@@ -10,6 +10,7 @@ final class SpeechBridge {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private var outputBuffer = Data()
+    private let writeQueue = DispatchQueue(label: "com.dictate-app.stdin-write")
 
     init(eventHandler: @escaping (WorkerEvent) -> Void) {
         self.eventHandler = eventHandler
@@ -65,6 +66,11 @@ final class SpeechBridge {
         sendCommand(StopCommand())
     }
 
+    func sendAudio(_ pcmData: Data) {
+        let base64 = pcmData.base64EncodedString()
+        sendCommand(AudioCommand(data: base64))
+    }
+
     func terminate() {
         process?.terminate()
         process = nil
@@ -100,7 +106,9 @@ final class SpeechBridge {
         do {
             var data = try encoder.encode(command)
             data.append(UInt8(ascii: "\n"))
-            pipe.fileHandleForWriting.write(data)
+            writeQueue.async {
+                pipe.fileHandleForWriting.write(data)
+            }
         } catch {
             NSLog("[DictateApp] Failed to encode command: %@", error.localizedDescription)
         }

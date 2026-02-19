@@ -4,11 +4,12 @@ Protocol
 --------
 Swift -> Python (stdin):
     {"type":"start","language":"en-US"}
+    {"type":"audio","data":"<base64 PCM bytes>"}
     {"type":"stop"}
 
 Python -> Swift (stdout):
     {"type":"ready"}
-    {"type":"interim","text":"hello wor","audio_level":0.73}
+    {"type":"interim","text":"hello wor"}
     {"type":"final","text":"hello world."}
     {"type":"error","message":"..."}
     {"type":"stopped"}
@@ -16,17 +17,17 @@ Python -> Swift (stdout):
 
 from __future__ import annotations
 
+import base64
 import json
-import math
-import struct
 import sys
 import threading
+import tomllib
 import queue
+from pathlib import Path
 
-import pyaudio
 from google.cloud import speech
 
-from dictate_app.config import Config
+_CONFIG = tomllib.loads((Path(__file__).parent / "config.toml").read_text())
 
 
 def _emit(event: dict) -> None:
@@ -37,32 +38,6 @@ def _emit(event: dict) -> None:
 
 def _log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
-
-
-def _rms(data: bytes) -> float:
-    n = len(data) // 2
-    if n == 0:
-        return 0.0
-    samples = struct.unpack(f"<{n}h", data)
-    return math.sqrt(sum(s * s for s in samples) / n)
-
-
-def _normalize_rms(rms: float) -> float:
-    if rms < 1:
-        return 0.0
-    return min(1.0, math.log10(rms) / math.log10(5000))
-
-
-def _make_audio_callback(audio_queue: queue.Queue, stop_event: threading.Event, rms_holder: list):
-    """Return a PyAudio stream callback that pushes chunks to the queue."""
-    def callback(in_data, frame_count, time_info, status_flags):
-        if stop_event.is_set():
-            return (None, pyaudio.paComplete)
-        if in_data is not None:
-            rms_holder[0] = _rms(in_data)
-            audio_queue.put(in_data)
-        return (None, pyaudio.paContinue)
-    return callback
 
 
 def _audio_generator(audio_queue: queue.Queue, stop_event: threading.Event):
@@ -77,28 +52,18 @@ def _audio_generator(audio_queue: queue.Queue, stop_event: threading.Event):
         yield chunk
 
 
-def _run_session(config: Config, pa: pyaudio.PyAudio, client: speech.SpeechClient,
+def _run_session(language: str, client: speech.SpeechClient,
+                 audio_queue: queue.Queue,
                  stop_event: threading.Event) -> None:
-    """Open mic, stream to Google Speech, emit JSON events. Blocks until stopped."""
-    audio_queue: queue.Queue[bytes | None] = queue.Queue()
-    rms_holder = [0.0]  # mutable container for current RMS
-
-    _log(f"[session] Opening mic: rate={config.sample_rate} channels={config.audio_channels}")
-    stream = pa.open(
-        format=pyaudio.paInt16,
-        channels=config.audio_channels,
-        rate=config.sample_rate,
-        input=True,
-        frames_per_buffer=config.chunk_frames,
-        stream_callback=_make_audio_callback(audio_queue, stop_event, rms_holder),
-    )
-
-    _log(f"[session] Connecting to Google Speech v1 API (model={config.model})")
+    """Stream audio from queue to Google Speech, emit JSON events. Blocks until stopped."""
+    model = _CONFIG["model"]
+    sample_rate = _CONFIG["sample_rate"]
+    _log(f"[session] Connecting to Google Speech v1 API (model={model})")
     recognition_config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=config.sample_rate,
-        language_code=config.language,
-        model=config.model,
+        sample_rate_hertz=sample_rate,
+        language_code=language,
+        model=model,
         enable_automatic_punctuation=True,
     )
     streaming_config = speech.StreamingRecognitionConfig(
@@ -131,19 +96,9 @@ def _run_session(config: Config, pa: pyaudio.PyAudio, client: speech.SpeechClien
             if interim_parts:
                 combined = "".join(interim_parts)
                 if combined:
-                    _emit({
-                        "type": "interim",
-                        "text": combined,
-                        "audio_level": round(_normalize_rms(rms_holder[0]), 3),
-                    })
+                    _emit({"type": "interim", "text": combined})
     except Exception as e:
         _emit({"type": "error", "message": str(e)})
-    finally:
-        try:
-            stream.stop_stream()
-            stream.close()
-        except Exception:
-            pass
 
 
 def _stop_session(stop_event: threading.Event | None, audio_queue: queue.Queue | None,
@@ -158,13 +113,12 @@ def _stop_session(stop_event: threading.Event | None, audio_queue: queue.Queue |
 
 
 def main() -> None:
-    config = Config()
-    pa = pyaudio.PyAudio()
     client = speech.SpeechClient()
 
     _emit({"type": "ready"})
 
     stop_event: threading.Event | None = None
+    audio_queue: queue.Queue | None = None
     session_thread: threading.Thread | None = None
 
     for line in sys.stdin:
@@ -183,26 +137,33 @@ def main() -> None:
         cmd_type = cmd.get("type")
 
         if cmd_type == "start":
-            _stop_session(stop_event, None, session_thread)
+            _stop_session(stop_event, audio_queue, session_thread)
 
-            language = cmd.get("language", config.language)
-            config.language = language
+            language = cmd.get("language", _CONFIG["language"])
 
             stop_event = threading.Event()
+            audio_queue = queue.Queue()
             session_thread = threading.Thread(
                 target=_run_session,
-                args=(config, pa, client, stop_event),
+                args=(language, client, audio_queue, stop_event),
                 daemon=True,
             )
             session_thread.start()
 
+        elif cmd_type == "audio":
+            if audio_queue is not None and stop_event is not None and not stop_event.is_set():
+                try:
+                    pcm_bytes = base64.b64decode(cmd["data"])
+                    audio_queue.put(pcm_bytes)
+                except (KeyError, Exception) as e:
+                    _log(f"[worker] bad audio message: {e}")
+
         elif cmd_type == "stop":
-            _stop_session(stop_event, None, session_thread)
+            _stop_session(stop_event, audio_queue, session_thread)
             stop_event = None
+            audio_queue = None
             session_thread = None
             _emit({"type": "stopped"})
-
-    pa.terminate()
 
 
 if __name__ == "__main__":
