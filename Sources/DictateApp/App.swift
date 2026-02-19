@@ -131,7 +131,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startListening() {
         appLog("Starting dictation…")
-        NSSound(named: "Tink")?.play()
+        NSSound(named: "Pop")?.play()
         listeningState.isListening = true
         listeningState.audioLevel = 0.0
         listeningState.transcript = ""
@@ -279,7 +279,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 listeningState.audioLevel = 0.0
                 listeningState.transcript = ""
                 indicatorWindow.hide()
-                NSSound(named: "Tink")?.play()
+                NSSound(named: "Pop")?.play()
             }
         }
     }
