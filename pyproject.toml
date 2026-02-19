@@ -1,0 +1,19 @@
+[project]
+name = "dictate-app"
+version = "0.1.0"
+description = "Voice-to-text dictation via Google Cloud Speech"
+requires-python = ">=3.12"
+dependencies = [
+    "pyaudio>=0.2.14",
+    "google-cloud-speech>=2.36.0",
+]
+
+[project.scripts]
+dictate-worker = "dictate_app.speech_worker:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dictate_app"]
