@@ -48,6 +48,22 @@ To start at login, either right-click the Dock icon, then Options, then Open at 
 
 Dictation auto-stops after 15 minutes.
 
+## Architecture
+
+```
++--------------------------+          +---------------------------+
+|    DictateApp (Swift)    |  stdin   |  speech_worker.py (Python)|
+|                          | -------> |                           |
+|  Hotkey, mic capture,    |  audio   |  Decodes audio, streams   |
+|  UI indicator            |  (JSON)  |  to Google Cloud Speech   |
+|                          | <------- |                           |
+|  Types final text into   |  stdout  |  Returns transcription    |
+|  focused app             |  (JSON)  |  results                  |
++--------------------------+          +---------------------------+
+```
+
+Swift captures mic audio via `AVAudioEngine`, converts to 16kHz mono PCM, and sends base64-encoded chunks over **stdin** to the Python worker. The worker streams them to Google Cloud Speech and sends transcription results back over **stdout**. Final text is typed into the focused app via keystroke simulation.
+
 ## Development
 
 ```

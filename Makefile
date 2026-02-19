@@ -26,6 +26,7 @@ $(APP_BUNDLE): build
 	mkdir -p $(APP_DIR)/Resources
 	cp .build/release/$(APP_NAME) $(APP_DIR)/MacOS/$(APP_NAME)
 	cp -a .venv $(APP_DIR)/Resources/venv
+	cp $(APP_NAME).icns $(APP_DIR)/Resources/$(APP_NAME).icns
 	@echo '<?xml version="1.0" encoding="UTF-8"?>' > $(APP_DIR)/Info.plist
 	@echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> $(APP_DIR)/Info.plist
 	@echo '<plist version="1.0">' >> $(APP_DIR)/Info.plist
@@ -35,6 +36,8 @@ $(APP_BUNDLE): build
 	@echo '  <key>CFBundleIdentifier</key>' >> $(APP_DIR)/Info.plist
 	@echo '  <string>com.dictate-app</string>' >> $(APP_DIR)/Info.plist
 	@echo '  <key>CFBundleName</key>' >> $(APP_DIR)/Info.plist
+	@echo '  <string>$(APP_NAME)</string>' >> $(APP_DIR)/Info.plist
+	@echo '  <key>CFBundleIconFile</key>' >> $(APP_DIR)/Info.plist
 	@echo '  <string>$(APP_NAME)</string>' >> $(APP_DIR)/Info.plist
 	@echo '  <key>CFBundlePackageType</key>' >> $(APP_DIR)/Info.plist
 	@echo '  <string>APPL</string>' >> $(APP_DIR)/Info.plist
