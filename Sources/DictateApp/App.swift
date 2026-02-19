@@ -7,13 +7,14 @@ func appLog(_ msg: String) {
     let line = "\(ts) \(msg)\n"
     NSLog("[DictateApp] %@", msg)
 
+    guard let data = line.data(using: .utf8) else { return }
     let logPath = NSHomeDirectory() + "/Library/Logs/DictateApp.log"
     if let fh = FileHandle(forWritingAtPath: logPath) {
         fh.seekToEndOfFile()
-        fh.write(line.data(using: .utf8)!)
+        fh.write(data)
         fh.closeFile()
     } else {
-        FileManager.default.createFile(atPath: logPath, contents: line.data(using: .utf8))
+        FileManager.default.createFile(atPath: logPath, contents: data)
     }
 }
 

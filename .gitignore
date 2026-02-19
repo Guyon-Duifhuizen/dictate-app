@@ -4,3 +4,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Credentials & secrets
+.env*
+*.key
+*.pem
+*.p12
+credentials.json
+service-account*.json

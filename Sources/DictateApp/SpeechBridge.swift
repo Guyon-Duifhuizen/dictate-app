@@ -88,9 +88,6 @@ final class SpeechBridge {
             guard !lineData.isEmpty else { continue }
 
             do {
-                if let raw = String(data: Data(lineData), encoding: .utf8) {
-                    appLog("Worker event: \(raw)")
-                }
                 let event = try decoder.decode(WorkerEvent.self, from: Data(lineData))
                 eventHandler(event)
             } catch {
