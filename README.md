@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icon.png" width="128" alt="DictateApp icon">
+</p>
+
 # DictateApp
 
 Voice-to-text dictation for macOS using Google Cloud Speech. Press **Cmd+\\** to start dictating, press again to stop. Transcribed text is typed into the focused application.
