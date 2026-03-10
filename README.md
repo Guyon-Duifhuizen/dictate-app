@@ -15,7 +15,12 @@ Voice-to-text dictation for macOS using Google Cloud Speech. Press **Cmd+\\** to
 
 ### Google Cloud setup
 
-Authenticate with application default credentials:
+First, enable the Google Cloud Speech-to-Text API:
+
+1. Go to the [Google Cloud Console Speech-to-Text API page](https://console.developers.google.com/apis/api/speech.googleapis.com/overview) (select your project)
+2. Click the **Enable API** button
+
+Then, authenticate with application default credentials:
 
 ```
 gcloud auth application-default login
