@@ -75,6 +75,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.speechBridge.launch()
         }
 
+        // Show preferences on launch so the user sees something
+        openPreferences()
+
         // Listen for hotkey preference changes
         NotificationCenter.default.addObserver(
             self,

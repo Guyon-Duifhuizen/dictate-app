@@ -58,7 +58,7 @@ struct HotkeyPreference: Codable, Equatable {
         case 49: return "Space"
         case 51: return "⌫"  // Delete
         case 53: return "⎋"  // Escape
-        case 50: return "\\"
+        case 50: return "`"
         case 123: return "←"
         case 124: return "→"
         case 125: return "↓"
@@ -77,7 +77,7 @@ struct HotkeyPreference: Codable, Equatable {
             18: "1", 19: "2", 20: "3", 21: "4", 22: "6", 23: "5", 24: "=", 25: "9", 26: "7",
             27: "-", 28: "8", 29: "0", 30: "]", 31: "O", 32: "U", 33: "[", 34: "I", 35: "P",
             37: "L", 38: "J", 39: "'", 40: "K", 41: ";", 42: "\\", 43: ",", 44: "/", 45: "N",
-            46: "M", 47: ".", 50: "\\"
+            46: "M", 47: ".", 50: "`"
         ]
         return charMap[keyCode] ?? "Key\(keyCode)"
     }
