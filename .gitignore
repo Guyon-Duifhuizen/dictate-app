@@ -12,3 +12,4 @@ __pycache__/
 *.p12
 credentials.json
 service-account*.json
+Sources/DictateApp/Info.plist

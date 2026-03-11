@@ -146,18 +146,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             appLog("Reloading hotkey with new preference: \(self.preferencesManager.currentHotkey.displayString)")
-            self.cleanupHotkey?()
-            self.startHotkeyListener()
+
+            // Create new event tap before destroying the old one
+            let newCleanup = installHotkeyListener(preference: self.preferencesManager.currentHotkey) { [weak self] action in
+                self?.handleHotkeyAction(action)
+            }
+
+            if newCleanup == nil {
+                appLog("❌ Failed to create new event tap - keeping old hotkey")
+                // Don't destroy the old event tap if we failed to create a new one
+            } else {
+                // Only cleanup old tap after successfully creating the new one
+                self.cleanupHotkey?()
+                self.cleanupHotkey = newCleanup
+                appLog("Ready — \(self.preferencesManager.currentHotkey.displayString) to start dictation, \(self.preferencesManager.currentHotkey.displayString) again to stop.")
+            }
         }
         hotkeyReloadWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
     }
 
     private func startHotkeyListener() {
-        cleanupHotkey = installHotkeyListener(preference: preferencesManager.currentHotkey) { [weak self] action in
+        let newCleanup = installHotkeyListener(preference: preferencesManager.currentHotkey) { [weak self] action in
             self?.handleHotkeyAction(action)
         }
-        appLog("Ready — \(preferencesManager.currentHotkey.displayString) to start dictation, \(preferencesManager.currentHotkey.displayString) again to stop.")
+
+        if newCleanup == nil {
+            appLog("❌ Failed to create event tap - accessibility may have been revoked")
+            // Keep old cleanup or handle error appropriately
+        } else {
+            cleanupHotkey = newCleanup
+            appLog("Ready — \(preferencesManager.currentHotkey.displayString) to start dictation, \(preferencesManager.currentHotkey.displayString) again to stop.")
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

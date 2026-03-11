@@ -73,18 +73,11 @@ private func hotkeyEventCallback(
         if flags.contains(.maskAlternate) { actualModifiers.insert(.option) }
         if flags.contains(.maskShift) { actualModifiers.insert(.shift) }
 
-        // DEBUG: Log every keypress to see what's being captured
-        NSLog("[DEBUG] Global key event: keyCode=\(keyCode), flags=\(flags.rawValue)")
-        NSLog("[DEBUG] Looking for: keyCode=\(box.preference.keyCode), modifiers=\(box.preference.modifiers)")
-        NSLog("[DEBUG] Actual modifiers: \(actualModifiers)")
-
         // Check if the key code and modifiers match the preference
         if keyCode == box.preference.keyCode && actualModifiers == box.preference.modifiers {
             NSLog("[DictateApp] Hotkey \(box.preference.displayString) detected")
             box.fn(.toggle)
             return nil
-        } else if keyCode == box.preference.keyCode {
-            NSLog("[DEBUG] KeyCode matched but modifiers didn't: expected \(box.preference.modifiers), got \(actualModifiers)")
         }
     }
 

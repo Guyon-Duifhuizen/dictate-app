@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - Constants
+
+/// Window dimensions for the preferences window.
+enum PreferencesWindowSize {
+    static let width: CGFloat = 580
+    static let height: CGFloat = 460
+}
+
 /// Enum for preferences tabs (extensible for future tabs).
 enum PreferencesTab: String, CaseIterable {
     case general = "General"
@@ -30,7 +38,7 @@ struct PreferencesView: View {
                 GeneralPreferencesView()
             }
         }
-        .frame(width: 580, height: 460)
+        .frame(width: PreferencesWindowSize.width, height: PreferencesWindowSize.height)
         .background(Material.regularMaterial)
     }
 }
