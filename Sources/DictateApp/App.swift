@@ -45,13 +45,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var maxDurationTimer: Timer?
     private let maxListeningDuration: TimeInterval = 15 * 60  // 15 minutes
 
+    var statusItem: NSStatusItem?
+    let preferencesManager = PreferencesManager.shared
+    var preferencesWindow: PreferencesWindow?
+    private var hotkeyReloadWorkItem: DispatchWorkItem?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         appLog("App launched (PID \(ProcessInfo.processInfo.processIdentifier))")
         appLog("AXIsProcessTrusted: \(AXIsProcessTrusted())")
 
+        // Create menu bar status item
+        setupMenuBar()
+
         indicatorWindow = IndicatorWindow(state: listeningState)
         indicatorWindow.onCancel = { [weak self] in
             self?.stopListening()
+        }
+        indicatorWindow.onSettings = { [weak self] in
+            self?.openPreferences()
         }
 
         speechBridge = SpeechBridge { [weak self] event in
@@ -63,6 +74,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         requestMicrophoneAccess {
             self.speechBridge.launch()
         }
+
+        // Listen for hotkey preference changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reloadHotkey),
+            name: .hotkeyDidChange,
+            object: nil
+        )
 
         if AXIsProcessTrusted() {
             startHotkeyListener()
@@ -103,11 +122,65 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func setupMenuBar() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem?.button {
+            button.image = NSImage(systemSymbolName: "mic.circle.fill", accessibilityDescription: "DictateApp")
+            button.image?.isTemplate = true
+        }
+
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Preferences...", action: #selector(openPreferences), keyEquivalent: ","))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        statusItem?.menu = menu
+    }
+
+    @objc func openPreferences() {
+        if preferencesWindow == nil {
+            preferencesWindow = PreferencesWindow()
+        }
+        preferencesWindow?.showWindow()
+    }
+
+    @objc func reloadHotkey() {
+        // Debounce rapid-fire reload requests to prevent duplicate event tap creation
+        hotkeyReloadWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            appLog("Reloading hotkey with new preference: \(self.preferencesManager.currentHotkey.displayString)")
+
+            // Create new event tap before destroying the old one
+            let newCleanup = installHotkeyListener(preference: self.preferencesManager.currentHotkey) { [weak self] action in
+                self?.handleHotkeyAction(action)
+            }
+
+            if newCleanup == nil {
+                appLog("❌ Failed to create new event tap - keeping old hotkey")
+                // Don't destroy the old event tap if we failed to create a new one
+            } else {
+                // Only cleanup old tap after successfully creating the new one
+                self.cleanupHotkey?()
+                self.cleanupHotkey = newCleanup
+                appLog("Ready — \(self.preferencesManager.currentHotkey.displayString) to start dictation, \(self.preferencesManager.currentHotkey.displayString) again to stop.")
+            }
+        }
+        hotkeyReloadWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+    }
+
     private func startHotkeyListener() {
-        cleanupHotkey = installHotkeyListener { [weak self] action in
+        let newCleanup = installHotkeyListener(preference: preferencesManager.currentHotkey) { [weak self] action in
             self?.handleHotkeyAction(action)
         }
-        appLog("Ready — Cmd+\\ to start dictation, Cmd+\\ again to stop.")
+
+        if newCleanup == nil {
+            appLog("❌ Failed to create event tap - accessibility may have been revoked")
+            // Keep old cleanup or handle error appropriately
+        } else {
+            cleanupHotkey = newCleanup
+            appLog("Ready — \(preferencesManager.currentHotkey.displayString) to start dictation, \(preferencesManager.currentHotkey.displayString) again to stop.")
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

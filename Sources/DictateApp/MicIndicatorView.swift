@@ -7,6 +7,7 @@ import SwiftUI
 struct MicIndicatorView: View {
     @ObservedObject var state: ListeningState
     var onCancel: () -> Void
+    var onSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -32,6 +33,16 @@ struct MicIndicatorView: View {
                     .foregroundStyle(.white.opacity(0.6))
 
                 Spacer()
+
+                Button(action: onSettings) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(width: 24, height: 24)
+                        .background(.white.opacity(0.15), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .contentShape(Circle())
 
                 Button(action: onCancel) {
                     Image(systemName: "xmark")

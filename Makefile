@@ -47,6 +47,8 @@ $(APP_BUNDLE): build
 	@echo '  <true/>' >> $(APP_DIR)/Info.plist
 	@echo '  <key>NSMicrophoneUsageDescription</key>' >> $(APP_DIR)/Info.plist
 	@echo '  <string>DictateApp needs microphone access to transcribe your speech.</string>' >> $(APP_DIR)/Info.plist
+	@echo '  <key>NSAccessibilityUsageDescription</key>' >> $(APP_DIR)/Info.plist
+	@echo '  <string>DictateApp needs accessibility access to capture global keyboard shortcuts and type transcribed text into applications.</string>' >> $(APP_DIR)/Info.plist
 	@echo '</dict>' >> $(APP_DIR)/Info.plist
 	@echo '</plist>' >> $(APP_DIR)/Info.plist
 	@echo "$(APP_BUNDLE) created."

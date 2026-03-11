@@ -4,7 +4,7 @@
 
 # DictateApp
 
-Voice-to-text dictation for macOS using Google Cloud Speech. Press **Cmd+\\** to start dictating, press again to stop. Transcribed text is typed into the focused application.
+Voice-to-text dictation for macOS using Google Cloud Speech. Press **Cmd+`** to start dictating, press again to stop. Transcribed text is typed into the focused application.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ To start at login, either right-click the Dock icon, then Options, then Open at 
 
 | Action | Shortcut |
 |---|---|
-| Start/stop dictation | **Cmd+\\** |
+| Start/stop dictation | **Cmd+`** |
 
 Dictation auto-stops after 15 minutes.
 
