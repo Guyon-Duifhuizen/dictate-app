@@ -24,7 +24,7 @@ enum PreferencesTab: String, CaseIterable {
 /// Uses liquid glass design with .regularMaterial background and custom tab bar.
 /// Follows macOS 16 design patterns seen in MicIndicatorView.swift.
 struct PreferencesView: View {
-    @StateObject private var preferencesManager = PreferencesManager.shared
+    @ObservedObject private var preferencesManager = PreferencesManager.shared
     @State private var selectedTab: PreferencesTab = .general
 
     var body: some View {

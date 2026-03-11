@@ -81,33 +81,30 @@ struct ShortcutRecorderView: View {
         isRecording = true
         validationError = nil
 
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [self] event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
             let keyCode = event.keyCode
-            let modifiers = extractModifiers(from: event.modifierFlags)
+            let modifiers = Self.extractModifiers(from: event.modifierFlags)
 
-            // Validate
             if modifiers.isEmpty {
-                validationError = "Requires at least one modifier key (⌘, ⌃, ⌥, or ⇧)"
+                self.validationError = "Requires at least one modifier key (⌘, ⌃, ⌥, or ⇧)"
                 return nil
             }
 
-            // Create new shortcut
             let newShortcut = HotkeyPreference(
                 keyCode: Int64(keyCode),
                 modifiers: modifiers
             )
 
-            // Validate using PreferencesManager
             let result = PreferencesManager.shared.validate(newShortcut)
             if let errorMsg = result.errorMessage {
-                validationError = errorMsg
+                self.validationError = errorMsg
             } else {
-                validationError = nil
-                preference = newShortcut
-                stopRecording()
+                self.validationError = nil
+                self.preference = newShortcut
+                self.stopRecording()
             }
 
-            return nil // Consume event
+            return nil
         }
     }
 
@@ -122,7 +119,7 @@ struct ShortcutRecorderView: View {
     // MARK: - Helpers
 
     /// Extract modifier keys from NSEvent.ModifierFlags.
-    func extractModifiers(from flags: NSEvent.ModifierFlags) -> Set<ModifierKey> {
+    static func extractModifiers(from flags: NSEvent.ModifierFlags) -> Set<ModifierKey> {
         var mods: Set<ModifierKey> = []
         if flags.contains(.command) { mods.insert(.command) }
         if flags.contains(.control) { mods.insert(.control) }

@@ -23,6 +23,7 @@ final class IndicatorWindow {
     private var panel: NSPanel?
     private let state: ListeningState
     var onCancel: (() -> Void)?
+    var onSettings: (() -> Void)?
 
     init(state: ListeningState) {
         self.state = state
@@ -60,6 +61,8 @@ final class IndicatorWindow {
 
         let hostingView = NSHostingView(rootView: MicIndicatorView(state: state, onCancel: { [weak self] in
             self?.onCancel?()
+        }, onSettings: { [weak self] in
+            self?.onSettings?()
         }))
         hostingView.frame = NSRect(x: 0, y: 0, width: panelWidth, height: initialHeight)
         hostingView.autoresizingMask = [.width, .height]

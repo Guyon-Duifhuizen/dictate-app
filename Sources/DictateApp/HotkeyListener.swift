@@ -36,6 +36,9 @@ func installHotkeyListener(preference: HotkeyPreference, callback: @escaping (Ho
 
     return {
         CGEvent.tapEnable(tap: tap, enable: false)
+        if let source = source {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
         // Release the retained callback box to prevent memory leak
         Unmanaged<CallbackBoxWithPreference>.fromOpaque(boxed).release()
     }

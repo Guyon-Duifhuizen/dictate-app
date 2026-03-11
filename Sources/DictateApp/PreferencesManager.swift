@@ -45,7 +45,7 @@ struct HotkeyPreference: Codable, Equatable {
     }
 
     static let `default` = HotkeyPreference(
-        keyCode: 50,  // kVK_ANSI_Backslash
+        keyCode: 42,  // kVK_ANSI_Backslash (0x2A)
         modifiers: [.command]
     )
 

@@ -61,6 +61,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         indicatorWindow.onCancel = { [weak self] in
             self?.stopListening()
         }
+        indicatorWindow.onSettings = { [weak self] in
+            self?.openPreferences()
+        }
 
         speechBridge = SpeechBridge { [weak self] event in
             self?.handleWorkerEvent(event)
